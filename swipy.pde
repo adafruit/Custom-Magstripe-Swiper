@@ -13,8 +13,8 @@ uint8_t scratch[TRACK1_LEN+BUFF];
 
 #define BYTELENGTH 7 // 6 + 1 parity
 
-//#define SERIAL 1
-#define KEYBOARD 1
+//#define _SERIAL 1
+#define _KEYBOARD 1
 
 void beep(uint8_t pin, long freq, long dur) {
   long d = 500000/ freq;
@@ -30,7 +30,7 @@ void beep(uint8_t pin, long freq, long dur) {
 
 void setup()
 {
-#ifdef SERIAL
+#ifdef _SERIAL
   Serial.begin(9600); // USB is always 12 Mbit/sec
 #endif
  
@@ -47,7 +47,6 @@ void loop()
 {
   while (digitalRead(CARD2));
   uint8_t zeros = 0;
-  uint8_t parityok = 0;
   
   // card was swiped!
   // check clocked in data
@@ -117,7 +116,7 @@ void loop()
     
   if (verifycard(track1)) {
 
-#ifdef SERIAL
+#ifdef _SERIAL
     Serial.println("Swiped!");
     for (uint8_t i = 0; i < TRACK1_LEN; i++) {
       Serial.print(track1[i], HEX); 
@@ -125,7 +124,11 @@ void loop()
     }
     Serial.println();
     for (uint8_t i = 0; i < TRACK1_LEN; i++) {
+#if ARDUINO >= 100
+      Serial.write((track1[i] & 0x3F)+0x20);
+#else
       Serial.print((track1[i] & 0x3F)+0x20, BYTE); 
+#endif
       Serial.print(" "); 
     }
     Serial.println();
@@ -144,11 +147,20 @@ void loop()
     // FIND PAN
     uint8_t i=2;
     while ((track1[i] & 0x3F) != 0x3E) {
-#ifdef SERIAL
+#if ARDUINO >= 100
+ #ifdef _SERIAL
+        Serial.write((track1[i] & 0x3F)+0x20);
+ #endif
+ #ifdef _KEYBOARD
+        Keyboard.write((track1[i] & 0x3F)+0x20);
+ #endif
+#else
+ #ifdef _SERIAL
         Serial.print((track1[i] & 0x3F)+0x20, BYTE); 
-#endif
-#ifdef KEYBOARD
+ #endif
+ #ifdef _KEYBOARD
         Keyboard.print((track1[i] & 0x3F)+0x20, BYTE);
+ #endif
 #endif
       i++;
     }
@@ -158,8 +170,12 @@ void loop()
     // LAST NAME
     uint8_t j=0;
     while ((track1[i] & 0x3F) != 0xF) {
-#ifdef SERIAL
+#ifdef _SERIAL
+#if ARDUINO >= 100
+      Serial.write((track1[i] & 0x3F)+0x20);
+#else
       Serial.print((track1[i] & 0x3F)+0x20, BYTE); 
+#endif
 #endif
       lname[j++] = (track1[i] & 0x3F)+0x20;
       i++;
@@ -169,8 +185,12 @@ void loop()
     j=0;
     // FIRST NAME
     while ((track1[i] & 0x3F) != 0x3E) {
-#ifdef SERIAL
+#ifdef _SERIAL
+#if ARDUINO >= 100
+      Serial.write((track1[i] & 0x3F)+0x20);
+#else
       Serial.print((track1[i] & 0x3F)+0x20, BYTE); 
+#endif
 #endif
       
       fname[j++] = (track1[i] & 0x3F)+0x20;
@@ -185,12 +205,19 @@ void loop()
     m1 = (track1[i++] & 0x3F)+0x20;
     m2 = (track1[i++] & 0x3F)+0x20;
   
-#ifdef KEYBOARD
+#ifdef _KEYBOARD
       Keyboard.print('\t');
+#if ARDUINO >= 100
+      Keyboard.write(m1);
+      Keyboard.write(m2);
+      Keyboard.write(y1);
+      Keyboard.write(y2);
+#else
       Keyboard.print(m1, BYTE);
       Keyboard.print(m2, BYTE);
       Keyboard.print(y1, BYTE);
       Keyboard.print(y2, BYTE);
+#endif
     
       Keyboard.print('\t'); // tab to amount
       Keyboard.print('\t'); // tab to invoice
@@ -217,7 +244,7 @@ void loop()
   } else {
     beep(PIEZO, 1000, 200);
     
-#ifdef SERIAL
+#ifdef _SERIAL
       Serial.println("Failed!");
       for (uint8_t i = 0; i < TRACK1_LEN; i++) {
         Serial.print(track1[i], HEX); 
